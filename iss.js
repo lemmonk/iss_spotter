@@ -1,18 +1,11 @@
-/**
- * Makes a single API request to retrieve the user's IP address.
- * Input:
- *   - A callback (to pass back an error or the IP string)
- * Returns (via Callback):
- *   - An error, if any (nullable)
- *   - The IP address as a string (null if error). Example: "162.245.144.188"
- */
+
 const request = require('request');
 
-const fetchMyIP = callback =>  {
+const fetchMyIP = callback => {
   // use request to fetch IP address from JSON API
   request(`https://api.ipify.org?format=json`, (error, res) => {
 
-     
+
     if (error) {
       return callback(error, null);
     }
@@ -25,18 +18,21 @@ const fetchMyIP = callback =>  {
 
 
     const data = JSON.parse(res.body);
-    // console.log(data.ip);
-    return callback(error,data.ip);
+    return callback(error, data.ip);
   });
 };
 
 
-const fetchCoordsByIP = callback =>  {
+
+
+
+
+const fetchCoordsByIP = (ip, callback) => {
   // use request to fetch IP address from JSON API
-  let ip = '66.183.29.157';
+  // ip = '66.183.29.157';
   request(`https://freegeoip.app/json/${ip}`, (error, res) => {
 
-     
+
     if (error) {
       return callback(error, null);
     }
@@ -53,17 +49,17 @@ const fetchCoordsByIP = callback =>  {
       latitude: data.latitude,
       longitude: data.longitude,
     };
-    
-    return callback(error,coords);
+
+    return callback(error, coords);
   });
 };
 
 
-const fetchISSFlyOverTimes = callback => {
-  let coords = { latitude: 48.9333, longitude: -125.5167 };
+const fetchISSFlyOverTimes = (coords, callback) => {
+  // let coords = { latitude: 48.9333, longitude: -125.5167 };
   request(`http://api.open-notify.org/iss-pass.json?lat=${coords.latitude}&lon=${coords.longitude}`, (error, res) => {
 
-     
+
     if (error) {
       return callback(error, null);
     }
@@ -76,15 +72,59 @@ const fetchISSFlyOverTimes = callback => {
 
 
     const data = JSON.parse(res.body);
-   
-    return callback(error,data.response);
+
+    return callback(error, data.response);
   });
 };
 
+const nextISSTimesForMyLocation = callback => {
+
+  fetchMyIP((error, ip) => {
+    if (error) {
+      console.log("It didn't work!", error);
+      return;
+    }
+
+    // console.log('It worked! Returned IP:', ip);
+
+    return fetchCoordsByIP(ip, (error, data) => {
+      if (error) {
+        console.log("It didn't work!", error);
+        return;
+      }
+
+      // console.log('It worked! Returned Coords:', data);
+
+      return fetchISSFlyOverTimes(data, (error, data) => {
+        if (error) {
+          console.log("It didn't work!", error);
+          return;
+        }
+
+       
+        const final = [];
+        for (const d in data) {
+          
+          let t = data[d].risetime * 1000;
+          let dateTime = new Date(t).toUTCString();
+          let str = `Next pass at ${dateTime} (Pacific Daylight Time) for ${data[d].duration} seconds!`;
+          final.push(str);
+        }
+
+        const e = final.join('\n');
+       
+        return callback(error, e);
+      });
+    });
+  });
+
+
+};
 
 
 module.exports = {
   fetchMyIP,
   fetchCoordsByIP,
   fetchISSFlyOverTimes,
+  nextISSTimesForMyLocation
 };
